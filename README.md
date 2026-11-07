@@ -37,14 +37,34 @@ This is a network function used for network service register/de-register/discove
 | `make cleandb` | remove the bbolt db file |
 | `make cleantestdb` | remove the test bbolt db files |
 
-## What you need TODO?
+## Service Context
 
-There are `TODO` keywords at sections that you need to implement. So, you can try to search the `TODO` keywords.
+Services are stored by service name, with the NF name, SBI address and port encoded as JSON. Discovery reads the database directly, so registered services remain available after restarting NSF. Deregistration checks the NF name before removing services. Each service name has one provider; registering the same name replaces its stored details.
 
-1. `internal/nsfContext/serviceContext.go`: This file is the core context structure for manage the NF services. You have to implement it correctly which can pass the unit test in `serviceContext_test.go` and the integration test with the docker image provided by CNDI.
-2. `internal/db/customDb.go`: You can implement your customized `dbIf` at this file and use this DB to test your service is stored correctly.
-3. Use the `make` related command to make sure everything is correct.
-4. Use the docker image provided by CNDI to validate if your NSF is implement correctly.
+## MongoDB Interface
+
+The default `nsf.db_type` in `config.yaml` remains `bbolt` for grading. To demonstrate the custom DB:
+
+1. Start a local MongoDB server at `mongodb://127.0.0.1:27017`.
+2. Change `nsf.db_type` to `mongodb` in `config.yaml`.
+3. Run `make` and `make run`, then register services through the SBI API.
+4. Inspect the records using `mongosh`:
+
+    ```bash
+    mongosh 'mongodb://127.0.0.1:27017/nsf' --eval 'db.services.find().toArray()'
+    ```
+
+5. Stop NSF and restore `nsf.db_type` to `bbolt` before submitting.
+
+MongoDB uses database `nsf`, collection `services`, with the service name in `_id` and the JSON string in `value`. Operations have a five-second timeout. Batch saves write one key at a time and are not transactional.
+
+The default `make test` skips MongoDB tests. With local MongoDB running, explicitly enable them with:
+
+```bash
+NSF_TEST_MONGODB=1 go test -v ./internal/db
+```
+
+This opt-in test removes all records in `nsf.services`; use a disposable local database and stop NSF first.
 
 ## Docker Image Validate
 
